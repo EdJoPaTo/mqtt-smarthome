@@ -1,0 +1,15 @@
+[package]
+name = "mqtt-smarthome"
+version = "0.1.0"
+license = "MIT"
+repository = "https://github.com/EdJoPaTo/mqtt-smarthome"
+authors = ["EdJoPaTo <mqtt-smarthome-rust@edjopato.de>"]
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rumqttc = "0.11"
+tokio = { version = "1", features = ["sync"] }
+
+[dev-dependencies]
+float_eq = "0.7"

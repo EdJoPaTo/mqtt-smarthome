@@ -1,0 +1,117 @@
+name: Test and Build Rust
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Check if it works with current dependencies
+    - cron: '42 2 * * 6' # weekly on Saturday 2:42 UTC
+jobs:
+  test:
+    name: Test ${{ matrix.toolchain }} ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+        os:
+          - ubuntu-20.04
+          - macos-11
+        clippyargs:
+          - -D clippy::pedantic -D warnings
+        features:
+          - --all-features
+        include:
+          # Check future versions and maybe get some glances on soon to be lints
+          - toolchain: beta
+            os: ubuntu-20.04
+            features: --all-features
+            clippyargs: -W clippy::pedantic -W clippy::nursery
+          - toolchain: nightly
+            os: ubuntu-20.04
+            features: --all-features
+            clippyargs: -W clippy::pedantic
+
+          # Check the minimum supported Rust version (MSRV).
+          # Sometimes old rust versions don't yet have the lints (allow unknown) or don't have fixes in lints (false positives -> don't error, just warn).
+          # When a certain distro is a target look up its version: https://repology.org/project/rust/versions
+          - os: ubuntu-20.04
+            toolchain: 1.54.0
+            clippyargs: -A unknown-lints
+            features: --all-features
+    steps:
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          components: clippy
+          override: true
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+
+      - uses: actions/checkout@v3
+
+      - name: Fetch dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+          args: --verbose
+
+      - name: Check clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --verbose --all-targets ${{ matrix.features }} -- ${{ matrix.clippyargs }}
+
+      - name: Check docs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --verbose --no-deps ${{ matrix.features }}
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose ${{ matrix.features }}
+
+  github-release:
+    name: Release ${{ matrix.triple }}
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: x86_64-unknown-linux-gnu
+            os: ubuntu-20.04
+          - triple: aarch64-unknown-linux-gnu
+            os: ubuntu-20.04
+          - triple: armv7-unknown-linux-gnueabihf
+            os: ubuntu-20.04
+          - triple: arm-unknown-linux-gnueabihf
+            os: ubuntu-20.04
+    steps:
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          override: true
+          profile: minimal
+          target: ${{ matrix.triple }}
+          toolchain: stable
+
+      - uses: actions/checkout@v3
+
+      - name: Fetch dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+          args: --verbose
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --verbose --all-features --target ${{ matrix.triple }}
+          use-cross: ${{ runner.os == 'Linux' && matrix.triple != 'x86_64-unknown-linux-gnu' }}
