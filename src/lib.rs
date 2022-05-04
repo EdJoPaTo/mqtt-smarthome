@@ -122,24 +122,28 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
             Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(p))) => {
                 println!("MQTT connected {:?}", p);
 
-                for topic in smarthome.subscribed.lock().await.iter() {
+                let smarthome = smarthome.clone();
+                task::spawn(async move {
+                    for topic in smarthome.subscribed.lock().await.iter() {
+                        smarthome
+                            .client
+                            .subscribe(topic, QoS::AtLeastOnce)
+                            .await
+                            .expect("failed to subscribe after reconnect");
+                    }
+
                     smarthome
                         .client
-                        .subscribe(topic, QoS::AtLeastOnce)
+                        .publish(
+                            &smarthome.last_will_topic,
+                            QoS::AtLeastOnce,
+                            smarthome.last_will_retain,
+                            "2",
+                        )
                         .await
-                        .expect("failed to subscribe after reconnect");
-                }
-
-                smarthome
-                    .client
-                    .publish(
-                        &smarthome.last_will_topic,
-                        QoS::AtLeastOnce,
-                        smarthome.last_will_retain,
-                        "2",
-                    )
-                    .await
-                    .expect("failed to publish connected");
+                        .expect("failed to publish connected");
+                    println!("MQTT connection fully initialized");
+                });
             }
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) => {
                 if publish.dup {
