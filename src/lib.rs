@@ -13,6 +13,7 @@ pub use history_entry::HistoryEntry;
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
+use tokio::task;
 use tokio::time::sleep;
 use watcher::Watcher;
 
@@ -28,12 +29,7 @@ pub struct MqttSmarthome {
 
 impl MqttSmarthome {
     #[must_use]
-    pub fn new(
-        base_topic: &str,
-        host: &str,
-        port: u16,
-        last_will_retain: bool,
-    ) -> (Self, EventLoop) {
+    pub fn new(base_topic: &str, host: &str, port: u16, last_will_retain: bool) -> Self {
         let last_will_topic = format!("{}/connected", base_topic);
 
         let mut mqttoptions = MqttOptions::new(base_topic, host, port);
@@ -46,74 +42,23 @@ impl MqttSmarthome {
 
         let (client, eventloop) = AsyncClient::new(mqttoptions, 100);
 
-        (
-            Self {
-                client,
-                history: Arc::new(Mutex::new(HashMap::new())),
-                last_will_retain,
-                last_will_topic,
-                subscribed: Arc::new(Mutex::new(HashSet::new())),
-                watchers: Arc::new(Mutex::new(Vec::new())),
-            },
-            eventloop,
-        )
-    }
+        let smarthome = Self {
+            client,
+            history: Arc::new(Mutex::new(HashMap::new())),
+            last_will_retain,
+            last_will_topic,
+            subscribed: Arc::new(Mutex::new(HashSet::new())),
+            watchers: Arc::new(Mutex::new(Vec::new())),
+        };
 
-    pub async fn handle_eventloop(&self, mut eventloop: EventLoop) {
-        loop {
-            match eventloop.poll().await {
-                Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(p))) => {
-                    println!("MQTT connected {:?}", p);
+        task::spawn({
+            let smarthome = smarthome.clone();
+            async move {
+                handle_eventloop(&smarthome, eventloop).await;
+            }
+        });
 
-                    if !p.session_present {
-                        for topic in self.subscribed.lock().await.iter() {
-                            self.client
-                                .subscribe(topic, QoS::AtLeastOnce)
-                                .await
-                                .expect("failed to subscribe after reconnect");
-                        }
-                    }
-
-                    self.client
-                        .publish(
-                            &self.last_will_topic,
-                            QoS::AtLeastOnce,
-                            self.last_will_retain,
-                            "2",
-                        )
-                        .await
-                        .expect("failed to publish connected");
-                }
-                Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) => {
-                    if publish.dup {
-                        continue;
-                    }
-
-                    if let Ok(payload) = String::from_utf8(publish.payload.to_vec()) {
-                        self.history
-                            .lock()
-                            .await
-                            .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
-
-                        for watcher in self.watchers.lock().await.iter() {
-                            watcher
-                                .notify(&publish.topic, publish.retain, &payload)
-                                .await
-                                .expect("failed to send to mqtt watcher");
-                        }
-                    }
-                }
-                Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
-                    println!("MQTT Disconnect happening...");
-                    break;
-                }
-                Ok(_) => {}
-                Err(err) => {
-                    println!("MQTT Connection Error: {}", err);
-                    sleep(Duration::from_secs(1)).await;
-                }
-            };
-        }
+        smarthome
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -168,5 +113,63 @@ impl MqttSmarthome {
             .lock()
             .await
             .insert(topic.to_owned(), HistoryEntry::new(payload));
+    }
+}
+
+async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
+    loop {
+        match eventloop.poll().await {
+            Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(p))) => {
+                println!("MQTT connected {:?}", p);
+
+                for topic in smarthome.subscribed.lock().await.iter() {
+                    smarthome
+                        .client
+                        .subscribe(topic, QoS::AtLeastOnce)
+                        .await
+                        .expect("failed to subscribe after reconnect");
+                }
+
+                smarthome
+                    .client
+                    .publish(
+                        &smarthome.last_will_topic,
+                        QoS::AtLeastOnce,
+                        smarthome.last_will_retain,
+                        "2",
+                    )
+                    .await
+                    .expect("failed to publish connected");
+            }
+            Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) => {
+                if publish.dup {
+                    continue;
+                }
+
+                if let Ok(payload) = String::from_utf8(publish.payload.to_vec()) {
+                    smarthome
+                        .history
+                        .lock()
+                        .await
+                        .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
+
+                    for watcher in smarthome.watchers.lock().await.iter() {
+                        watcher
+                            .notify(&publish.topic, publish.retain, &payload)
+                            .await
+                            .expect("failed to send to mqtt watcher");
+                    }
+                }
+            }
+            Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
+                println!("MQTT Disconnect happening...");
+                break;
+            }
+            Ok(_) => {}
+            Err(err) => {
+                println!("MQTT Connection Error: {}", err);
+                sleep(Duration::from_secs(1)).await;
+            }
+        };
     }
 }
