@@ -6,6 +6,7 @@ on:
   schedule:
     # Check if it works with current dependencies
     - cron: '42 2 * * 6' # weekly on Saturday 2:42 UTC
+
 jobs:
   test:
     name: Test ${{ matrix.toolchain }} ${{ matrix.os }}
