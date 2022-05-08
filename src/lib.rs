@@ -12,7 +12,7 @@ use std::time::Duration;
 pub use history_entry::HistoryEntry;
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
 use tokio::sync::mpsc::Receiver;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time::sleep;
 use watcher::Watcher;
@@ -20,11 +20,11 @@ use watcher::Watcher;
 #[derive(Clone)]
 pub struct MqttSmarthome {
     client: AsyncClient,
-    history: Arc<Mutex<HashMap<String, HistoryEntry>>>,
+    history: Arc<RwLock<HashMap<String, HistoryEntry>>>,
     last_will_retain: bool,
     last_will_topic: String,
-    subscribed: Arc<Mutex<HashSet<String>>>,
-    watchers: Arc<Mutex<Vec<Watcher>>>,
+    subscribed: Arc<RwLock<HashSet<String>>>,
+    watchers: Arc<RwLock<Vec<Watcher>>>,
 }
 
 impl MqttSmarthome {
@@ -44,11 +44,11 @@ impl MqttSmarthome {
 
         let smarthome = Self {
             client,
-            history: Arc::new(Mutex::new(HashMap::new())),
+            history: Arc::new(RwLock::new(HashMap::new())),
             last_will_retain,
             last_will_topic,
-            subscribed: Arc::new(Mutex::new(HashSet::new())),
-            watchers: Arc::new(Mutex::new(Vec::new())),
+            subscribed: Arc::new(RwLock::new(HashSet::new())),
+            watchers: Arc::new(RwLock::new(Vec::new())),
         };
 
         task::spawn({
@@ -76,7 +76,7 @@ impl MqttSmarthome {
     }
 
     pub async fn subscribe(&self, topic: &str) {
-        let is_new = self.subscribed.lock().await.insert(topic.to_owned());
+        let is_new = self.subscribed.write().await.insert(topic.to_owned());
         if is_new {
             self.client
                 .subscribe(topic, QoS::AtLeastOnce)
@@ -91,12 +91,12 @@ impl MqttSmarthome {
         allow_retained: bool,
     ) -> Receiver<watcher::ChannelPayload> {
         let (watcher, receiver) = Watcher::new(topic, allow_retained);
-        self.watchers.lock().await.push(watcher);
+        self.watchers.write().await.push(watcher);
         receiver
     }
 
     pub async fn last(&self, topic: &str) -> Option<HistoryEntry> {
-        self.history.lock().await.get(topic).cloned()
+        self.history.read().await.get(topic).cloned()
     }
 
     pub async fn publish<P>(&self, topic: &str, payload: P, retain: bool)
@@ -110,7 +110,7 @@ impl MqttSmarthome {
             .expect("failed to publish to mqtt");
 
         self.history
-            .lock()
+            .write()
             .await
             .insert(topic.to_owned(), HistoryEntry::new(payload));
     }
@@ -124,7 +124,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
 
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
-                    for topic in smarthome.subscribed.lock().await.iter() {
+                    for topic in smarthome.subscribed.read().await.iter() {
                         smarthome
                             .client
                             .subscribe(topic, QoS::AtLeastOnce)
@@ -153,11 +153,11 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                 if let Ok(payload) = String::from_utf8(publish.payload.to_vec()) {
                     smarthome
                         .history
-                        .lock()
+                        .write()
                         .await
                         .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
 
-                    for watcher in smarthome.watchers.lock().await.iter() {
+                    for watcher in smarthome.watchers.read().await.iter() {
                         watcher
                             .notify(&publish.topic, publish.retain, &payload)
                             .await
