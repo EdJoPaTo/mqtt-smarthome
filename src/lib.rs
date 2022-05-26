@@ -157,9 +157,16 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .await
                         .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
 
-                    for watcher in smarthome.watchers.read().await.iter() {
-                        watcher
-                            .notify(&publish.topic, publish.retain, &payload)
+                    let senders = smarthome
+                        .watchers
+                        .read()
+                        .await
+                        .iter()
+                        .filter_map(|o| o.matching_sender(&publish.topic, publish.retain))
+                        .collect::<Vec<_>>();
+                    for sender in senders {
+                        sender
+                            .send((publish.topic.clone(), payload.clone()))
                             .await
                             .expect("failed to send to mqtt watcher");
                     }

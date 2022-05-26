@@ -1,4 +1,3 @@
-use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 pub type ChannelPayload = (String, String);
@@ -32,18 +31,12 @@ impl Watcher {
         rumqttc::mqttbytes::matches(topic, &self.filter)
     }
 
-    pub async fn notify(
-        &self,
-        topic: &str,
-        retained: bool,
-        payload: &str,
-    ) -> Result<(), SendError<(String, String)>> {
+    pub fn matching_sender(&self, topic: &str, retained: bool) -> Option<Sender<ChannelPayload>> {
         if self.is_match(topic, retained) {
-            self.sender
-                .send((topic.to_string(), payload.to_string()))
-                .await?;
+            Some(self.sender.clone())
+        } else {
+            None
         }
-        Ok(())
     }
 }
 
