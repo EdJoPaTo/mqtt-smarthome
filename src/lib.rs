@@ -166,8 +166,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .collect::<Vec<_>>();
                     for sender in senders {
                         sender
-                            .send((publish.topic.clone(), payload.clone()))
-                            .await
+                            .try_send((publish.topic.clone(), payload.clone()))
                             .expect("failed to send to mqtt watcher");
                     }
                 }
