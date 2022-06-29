@@ -85,6 +85,14 @@ jobs:
             os: ubuntu-20.04
           - triple: arm-unknown-linux-gnueabihf
             os: ubuntu-20.04
+          # https://github.com/briansmith/ring/issues/1419
+          # - triple: riscv64gc-unknown-linux-gnu
+          #   os: ubuntu-20.04
+
+          - triple: x86_64-apple-darwin
+            os: macos-11
+          - triple: aarch64-apple-darwin
+            os: macos-11
     steps:
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
