@@ -1,6 +1,6 @@
 [package]
 name = "mqtt-smarthome"
-version = "0.2.2"
+version = "0.3.0"
 license = "MIT"
 repository = "https://github.com/EdJoPaTo/mqtt-smarthome"
 authors = ["EdJoPaTo <mqtt-smarthome-rust@edjopato.de>"]
@@ -9,7 +9,7 @@ edition = "2021"
 
 [dependencies]
 rumqttc = "0.13"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
 float_eq = "1.0"
