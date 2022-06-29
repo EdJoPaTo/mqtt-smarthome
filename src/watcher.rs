@@ -4,7 +4,7 @@ pub type ChannelPayload = (String, String);
 
 pub struct Watcher {
     allow_retained: bool,
-    filter: String,
+    filter: Box<str>,
     sender: Sender<ChannelPayload>,
 }
 
@@ -17,7 +17,7 @@ impl Watcher {
         let (sender, receiver) = channel(10);
         let watcher = Self {
             allow_retained,
-            filter: mqtt_topic_filter.to_string(),
+            filter: mqtt_topic_filter.into(),
             sender,
         };
         (watcher, receiver)

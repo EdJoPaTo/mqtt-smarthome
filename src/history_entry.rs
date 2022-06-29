@@ -5,15 +5,18 @@ use crate::payload;
 #[derive(Debug, Clone)]
 pub struct HistoryEntry {
     time: SystemTime,
-    pub payload: String,
+    payload: Box<str>,
 }
 
 impl HistoryEntry {
     #[must_use]
-    pub fn new(payload: String) -> Self {
+    pub fn new<I>(payload: I) -> Self
+    where
+        I: Into<Box<str>>,
+    {
         Self {
             time: SystemTime::now(),
-            payload,
+            payload: payload.into(),
         }
     }
 
@@ -33,12 +36,17 @@ impl HistoryEntry {
     pub fn as_float(&self) -> Option<f32> {
         self.payload.parse::<f32>().ok()
     }
+
+    #[must_use]
+    pub const fn payload(&self) -> &str {
+        &self.payload
+    }
 }
 
 #[test]
 fn payload_stays_payload() {
-    assert_eq!(HistoryEntry::new("42".to_owned()).payload, "42");
-    assert_eq!(HistoryEntry::new("666".to_owned()).payload, "666");
+    assert_eq!(HistoryEntry::new("42".to_owned()).payload(), "42");
+    assert_eq!(HistoryEntry::new("666".to_owned()).payload(), "666");
 }
 
 #[test]
