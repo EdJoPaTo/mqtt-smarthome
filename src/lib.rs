@@ -11,6 +11,7 @@ use std::time::Duration;
 
 pub use history_entry::HistoryEntry;
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
+use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 use tokio::task;
@@ -165,9 +166,15 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .filter_map(|o| o.matching_sender(&publish.topic, publish.retain))
                         .collect::<Vec<_>>();
                     for sender in senders {
-                        sender
-                            .try_send((publish.topic.clone(), payload.clone()))
-                            .expect("failed to send to mqtt watcher");
+                        match sender.try_send((publish.topic.clone(), payload.clone())) {
+                            Ok(_) => {}
+                            Err(TrySendError::Closed((topic, _))) => {
+                                panic!("mqtt watcher receiver closed. Topic: {}", topic);
+                            }
+                            Err(TrySendError::Full((topic, _))) => {
+                                eprintln!("mqtt watcher receiver buffer is full. Topic: {}", topic);
+                            }
+                        }
                     }
                 }
             }
