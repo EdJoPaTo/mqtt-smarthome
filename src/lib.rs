@@ -82,7 +82,7 @@ impl MqttSmarthome {
             self.client
                 .subscribe(topic, QoS::AtLeastOnce)
                 .await
-                .expect("failed to subscribe to mqtt");
+                .expect("failed to subscribe to MQTT");
         }
     }
 
@@ -108,7 +108,7 @@ impl MqttSmarthome {
         self.client
             .publish(topic, QoS::AtLeastOnce, retain, payload.clone())
             .await
-            .expect("failed to publish to mqtt");
+            .expect("failed to publish to MQTT");
 
         self.history
             .write()
@@ -169,10 +169,10 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         match sender.try_send((publish.topic.clone(), payload.clone())) {
                             Ok(_) => {}
                             Err(TrySendError::Closed((topic, _))) => {
-                                panic!("mqtt watcher receiver closed. Topic: {}", topic);
+                                panic!("MQTT watcher receiver closed. Topic: {}", topic);
                             }
                             Err(TrySendError::Full((topic, _))) => {
-                                eprintln!("mqtt watcher receiver buffer is full. Topic: {}", topic);
+                                eprintln!("MQTT watcher receiver buffer is full. Topic: {}", topic);
                             }
                         }
                     }
