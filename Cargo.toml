@@ -1,6 +1,6 @@
 [package]
 name = "mqtt-smarthome"
-version = "0.3.1"
+version = "0.3.2"
 license = "MIT"
 repository = "https://github.com/EdJoPaTo/mqtt-smarthome"
 authors = ["EdJoPaTo <mqtt-smarthome-rust@edjopato.de>"]
