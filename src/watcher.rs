@@ -14,7 +14,7 @@ impl Watcher {
             rumqttc::mqttbytes::valid_filter(mqtt_topic_filter),
             "topic filter is not valid"
         );
-        let (sender, receiver) = channel(25);
+        let (sender, receiver) = channel(10);
         let watcher = Self {
             allow_retained,
             filter: mqtt_topic_filter.into(),
