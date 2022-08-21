@@ -9,7 +9,7 @@ edition = "2021"
 
 [dependencies]
 rumqttc = "0.14"
-tokio = { version = "1.0", features = ["sync"] }
+tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
-float_eq = "1.0"
+float_eq = "1"
