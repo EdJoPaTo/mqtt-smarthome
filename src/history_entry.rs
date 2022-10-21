@@ -54,7 +54,7 @@ fn ago_works() {
     let entry = HistoryEntry::new("42".to_owned());
     std::thread::sleep(Duration::from_millis(25));
     let ago = entry.ago().as_millis();
-    println!("ago: {} ms", ago);
+    println!("ago: {ago} ms");
     assert!(ago > 20);
     assert!(ago < 300);
 }

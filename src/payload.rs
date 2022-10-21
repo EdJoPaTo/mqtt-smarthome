@@ -6,7 +6,7 @@ pub fn is_true(payload: &str) -> bool {
         "false" | "False" | "FALSE" | "off" | "Off" | "OFF" | "offline" | "Offline" | "OFFLINE"
         | "0" => false,
         _ => {
-            eprintln!("WARNING is_true unclear, assumes true: {:?}", payload);
+            eprintln!("WARNING is_true unclear, assumes true: {payload:?}");
             true
         }
     }

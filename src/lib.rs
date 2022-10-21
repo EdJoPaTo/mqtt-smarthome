@@ -31,7 +31,7 @@ pub struct MqttSmarthome {
 impl MqttSmarthome {
     #[must_use]
     pub fn new(base_topic: &str, host: &str, port: u16, last_will_retain: bool) -> Self {
-        let last_will_topic = format!("{}/connected", base_topic);
+        let last_will_topic = format!("{base_topic}/connected");
 
         let mut mqttoptions = MqttOptions::new(base_topic, host, port);
         mqttoptions.set_last_will(LastWill::new(
@@ -121,7 +121,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
     loop {
         match eventloop.poll().await {
             Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(p))) => {
-                println!("MQTT connected {:?}", p);
+                println!("MQTT connected {p:?}");
 
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
@@ -169,10 +169,10 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         match sender.try_send((publish.topic.clone(), payload.clone())) {
                             Ok(_) => {}
                             Err(TrySendError::Closed((topic, _))) => {
-                                panic!("MQTT watcher receiver closed. Topic: {}", topic);
+                                panic!("MQTT watcher receiver closed. Topic: {topic}");
                             }
                             Err(TrySendError::Full((topic, _))) => {
-                                eprintln!("MQTT watcher receiver buffer is full. Topic: {}", topic);
+                                eprintln!("MQTT watcher receiver buffer is full. Topic: {topic}");
                             }
                         }
                     }
@@ -184,7 +184,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
             }
             Ok(_) => {}
             Err(err) => {
-                println!("MQTT Connection Error: {}", err);
+                println!("MQTT Connection Error: {err}");
                 sleep(Duration::from_secs(1)).await;
             }
         };
