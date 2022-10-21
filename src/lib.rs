@@ -151,6 +151,12 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                     continue;
                 }
 
+                // Empty payloads are normally used to clean the (retained) topic -> forget about it
+                if publish.payload.is_empty() {
+                    smarthome.history.write().await.remove(&publish.topic);
+                    continue;
+                }
+
                 if let Ok(payload) = String::from_utf8(publish.payload.to_vec()) {
                     smarthome
                         .history
