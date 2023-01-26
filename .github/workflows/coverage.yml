@@ -6,22 +6,35 @@ on:
 
 jobs:
   tarpaulin:
-    name: Tarpaulin
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
-          toolchain: stable
+        shell: bash -eux {0}
+        run: |
+          rustup --version
+          rustup show
+          rustup toolchain install stable --profile minimal
+          rustup default stable
 
       - uses: actions/checkout@v3
 
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+      - uses: actions/cache@v3
         with:
-          args: --all-features
-          out-type: Html
+          key: tarpaulin-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: tarpaulin-
+          path: |
+            ~/.cargo/.crates*
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run cargo-tarpaulin
+        run: cargo tarpaulin --all-features --out Html
 
       - name: Upload Report
         uses: actions/upload-artifact@v3
