@@ -125,7 +125,8 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
 
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
-                    for topic in smarthome.subscribed.read().await.iter() {
+                    let topics = smarthome.subscribed.read().await.clone();
+                    for topic in topics {
                         smarthome
                             .client
                             .subscribe(topic, QoS::AtLeastOnce)
