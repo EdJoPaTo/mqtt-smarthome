@@ -4,10 +4,10 @@ mod history_entry;
 pub mod payload;
 mod watcher;
 
+use core::time::Duration;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Duration;
 
 pub use history_entry::HistoryEntry;
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};

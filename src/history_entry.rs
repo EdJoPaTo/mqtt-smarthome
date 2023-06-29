@@ -1,4 +1,5 @@
-use std::time::{Duration, SystemTime};
+use core::time::Duration;
+use std::time::SystemTime;
 
 use crate::payload;
 
