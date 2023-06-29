@@ -32,11 +32,7 @@ impl Watcher {
     }
 
     pub fn matching_sender(&self, topic: &str, retained: bool) -> Option<Sender<ChannelPayload>> {
-        if self.is_match(topic, retained) {
-            Some(self.sender.clone())
-        } else {
-            None
-        }
+        self.is_match(topic, retained).then(|| self.sender.clone())
     }
 }
 
