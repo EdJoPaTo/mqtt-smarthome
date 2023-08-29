@@ -62,11 +62,13 @@ impl MqttSmarthome {
         smarthome
     }
 
+    /// Disconnect from the MQTT broker.
     #[allow(clippy::missing_errors_doc)]
     pub async fn disconnect(&self) -> Result<(), rumqttc::ClientError> {
         self.client.disconnect().await
     }
 
+    /// Combines [`subscribe`](crate::MqttSmarthome::subscribe) and [`watch`](crate::MqttSmarthome::watch).
     pub async fn subscribe_and_watch(
         &self,
         topic: &str,
@@ -76,6 +78,9 @@ impl MqttSmarthome {
         self.watch(topic, allow_retained).await
     }
 
+    /// Subscribe to a MQTT `topic`.
+    /// # Panics
+    /// Panics when the MQTT eventloop is gone.
     pub async fn subscribe(&self, topic: &str) {
         let is_new = self.subscribed.write().await.insert(topic.to_owned());
         if is_new {
@@ -86,6 +91,9 @@ impl MqttSmarthome {
         }
     }
 
+    /// Watch for new messages on the `topic`.
+    ///
+    /// Requires the topic to be subscribed to notice them.
     pub async fn watch(
         &self,
         topic: &str,
@@ -96,10 +104,14 @@ impl MqttSmarthome {
         receiver
     }
 
+    /// Return the last `HistoryEntry` of the given `topic`.
     pub async fn last(&self, topic: &str) -> Option<HistoryEntry> {
         self.history.read().await.get(topic).cloned()
     }
 
+    /// Publish a `payload` to a MQTT `topic`.
+    /// # Panics
+    /// Panics when the MQTT eventloop is gone.
     pub async fn publish<P>(&self, topic: &str, payload: P, retain: bool)
     where
         P: ToString + Send,

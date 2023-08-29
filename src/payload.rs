@@ -1,3 +1,4 @@
+/// Detect common `true` / `false` states in a string payload.
 #[must_use]
 pub fn is_true(payload: &str) -> bool {
     match payload {
