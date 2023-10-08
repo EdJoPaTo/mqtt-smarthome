@@ -180,7 +180,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .collect::<Vec<_>>();
                     for sender in senders {
                         match sender.try_send((publish.topic.clone(), payload.clone())) {
-                            Ok(_) => {}
+                            Ok(()) => {}
                             Err(TrySendError::Closed((topic, _))) => {
                                 panic!("MQTT watcher receiver closed. Topic: {topic}");
                             }
