@@ -12,7 +12,7 @@ default = []
 tls = ["rumqttc/use-rustls"]
 
 [dependencies]
-rumqttc = { version = "0.22", default-features = false }
+rumqttc = { version = "0.23", default-features = false }
 tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
