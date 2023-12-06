@@ -159,12 +159,8 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                     println!("MQTT connection fully initialized");
                 });
             }
-            Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) => {
-                if publish.dup {
-                    continue;
-                }
-
-                if let Ok(payload) = String::from_utf8(publish.payload.to_vec()) {
+            Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) if !publish.dup => {
+                if let Ok(payload) = String::from_utf8(publish.payload.into()) {
                     smarthome
                         .history
                         .write()
