@@ -35,7 +35,11 @@ impl HistoryEntry {
 
     #[must_use]
     pub fn as_float(&self) -> Option<f32> {
-        self.payload.parse::<f32>().ok()
+        self.payload
+            .split(char::is_whitespace)
+            .find(|o| !o.is_empty())?
+            .parse::<f32>()
+            .ok()
     }
 
     #[must_use]
@@ -68,14 +72,21 @@ fn payload_as_boolean() {
 
 #[test]
 fn payload_as_float() {
-    float_eq::assert_float_eq!(
-        HistoryEntry::new("42".to_owned()).as_float().unwrap(),
-        42.0,
-        abs <= 0.1
-    );
-    float_eq::assert_float_eq!(
-        HistoryEntry::new("666".to_owned()).as_float().unwrap(),
-        666.0,
-        abs <= 0.1
-    );
+    fn t(input: &str, expected: Option<f32>) {
+        let actual = HistoryEntry::new(input.to_owned()).as_float();
+        match (actual, expected) {
+            (None, None) => {} // All fine
+            (Some(actual), Some(expected)) => {
+                float_eq::assert_float_eq!(actual, expected, abs <= 0.1);
+            }
+            _ => panic!("Assertion failed:\n{actual:?} should be\n{expected:?}"),
+        }
+    }
+
+    t("", None);
+    t("test", None);
+    t("42", Some(42.0));
+    t("666", Some(666.0));
+    t("12.3 °C", Some(12.3));
+    t(" 2.4 °C", Some(2.4));
 }
