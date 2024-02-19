@@ -110,6 +110,24 @@ impl MqttSmarthome {
         self.history.read().await.get(topic).cloned()
     }
 
+    /// Shortcut for `.last(topic).await.is_some_and(|o| o.as_boolean())`
+    pub async fn last_is_true(&self, topic: &str) -> bool {
+        self.history
+            .read()
+            .await
+            .get(topic)
+            .is_some_and(HistoryEntry::as_boolean)
+    }
+
+    /// Shortcut for `.last(topic).await.and_then(|o| o.as_float())`
+    pub async fn last_float(&self, topic: &str) -> Option<f32> {
+        self.history
+            .read()
+            .await
+            .get(topic)
+            .and_then(HistoryEntry::as_float)
+    }
+
     /// Publish a `payload` to a MQTT `topic`.
     /// # Panics
     /// Panics when the MQTT eventloop is gone.
