@@ -37,7 +37,7 @@ impl HistoryEntry {
     pub fn as_float(&self) -> Option<f32> {
         self.payload
             .split(char::is_whitespace)
-            .find(|o| !o.is_empty())?
+            .find(|str| !str.is_empty())?
             .parse::<f32>()
             .ok()
     }

@@ -151,8 +151,8 @@ impl MqttSmarthome {
 async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
     loop {
         match eventloop.poll().await {
-            Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(p))) => {
-                println!("MQTT connected {p:?}");
+            Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(packet))) => {
+                println!("MQTT connected {packet:?}");
 
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
@@ -191,7 +191,9 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .read()
                         .await
                         .iter()
-                        .filter_map(|o| o.matching_sender(&publish.topic, publish.retain))
+                        .filter_map(|watcher| {
+                            watcher.matching_sender(&publish.topic, publish.retain)
+                        })
                         .collect::<Vec<_>>();
                     for sender in senders {
                         match sender.try_send((publish.topic.clone(), payload.clone())) {
