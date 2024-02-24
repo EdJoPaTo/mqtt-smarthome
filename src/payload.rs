@@ -13,32 +13,15 @@ pub fn is_true(payload: &str) -> bool {
     }
 }
 
-#[test]
-fn is_true_off() {
-    assert!(!is_true("off"));
-}
+#[cfg(test)]
+mod tests {
+    #[rstest::rstest]
+    fn is_true(#[values("on", "1", "true")] payload: &str) {
+        assert!(super::is_true(payload));
+    }
 
-#[test]
-fn is_true_on() {
-    assert!(is_true("on"));
-}
-
-#[test]
-fn is_true_zero() {
-    assert!(!is_true("0"));
-}
-
-#[test]
-fn is_true_one() {
-    assert!(is_true("1"));
-}
-
-#[test]
-fn is_true_false() {
-    assert!(!is_true("false"));
-}
-
-#[test]
-fn is_true_true() {
-    assert!(is_true("true"));
+    #[rstest::rstest]
+    fn is_false(#[values("off", "0", "false")] payload: &str) {
+        assert!(!super::is_true(payload));
+    }
 }

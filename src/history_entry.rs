@@ -48,31 +48,39 @@ impl HistoryEntry {
     }
 }
 
-#[test]
-fn payload_stays_payload() {
-    assert_eq!(HistoryEntry::new("42".to_owned()).payload(), "42");
-    assert_eq!(HistoryEntry::new("666".to_owned()).payload(), "666");
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn ago_works() {
-    let entry = HistoryEntry::new("42".to_owned());
-    std::thread::sleep(Duration::from_millis(25));
-    let ago = entry.ago().as_millis();
-    println!("ago: {ago} ms");
-    assert!(ago > 20);
-    assert!(ago < 300);
-}
+    #[rstest::rstest]
+    fn payload_stays_payload(#[values("42", "666")] payload: &str) {
+        assert_eq!(HistoryEntry::new(payload.to_owned()).payload(), payload);
+    }
 
-#[test]
-fn payload_as_boolean() {
-    assert!(HistoryEntry::new("true".to_owned()).as_boolean());
-    assert!(!HistoryEntry::new("false".to_owned()).as_boolean());
-}
+    #[test]
+    fn ago_works() {
+        let entry = HistoryEntry::new("42".to_owned());
+        std::thread::sleep(Duration::from_millis(25));
+        let ago = entry.ago().as_millis();
+        println!("ago: {ago} ms");
+        assert!(ago > 20);
+        assert!(ago < 300);
+    }
 
-#[test]
-fn payload_as_float() {
-    fn t(input: &str, expected: Option<f32>) {
+    #[test]
+    fn payload_as_boolean() {
+        assert!(HistoryEntry::new("true".to_owned()).as_boolean());
+        assert!(!HistoryEntry::new("false".to_owned()).as_boolean());
+    }
+
+    #[rstest::rstest]
+    #[case("", None)]
+    #[case("test", None)]
+    #[case("42", Some(42.0))]
+    #[case("666", Some(666.0))]
+    #[case("12.3 °C", Some(12.3))]
+    #[case(" 2.4 °C", Some(2.4))]
+    fn payload_as_float(#[case] input: &str, #[case] expected: Option<f32>) {
         let actual = HistoryEntry::new(input.to_owned()).as_float();
         match (actual, expected) {
             (None, None) => {} // All fine
@@ -82,11 +90,4 @@ fn payload_as_float() {
             _ => panic!("Assertion failed:\n{actual:?} should be\n{expected:?}"),
         }
     }
-
-    t("", None);
-    t("test", None);
-    t("42", Some(42.0));
-    t("666", Some(666.0));
-    t("12.3 °C", Some(12.3));
-    t(" 2.4 °C", Some(2.4));
 }
