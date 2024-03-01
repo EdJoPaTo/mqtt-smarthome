@@ -11,6 +11,12 @@ edition = "2021"
 default = []
 tls = ["rumqttc/use-rustls"]
 
+[lints.rust]
+unsafe_code = "forbid"
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+
 [dependencies]
 rumqttc = { version = "0.23", default-features = false }
 tokio = { version = "1", features = ["sync"] }

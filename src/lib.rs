@@ -157,6 +157,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
                     let topics = smarthome.subscribed.read().await.clone();
+                    #[allow(clippy::iter_over_hash_type)]
                     for topic in topics {
                         smarthome
                             .client
