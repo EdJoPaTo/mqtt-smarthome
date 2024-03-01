@@ -33,8 +33,16 @@ impl MqttSmarthome {
     #[must_use]
     pub fn new(base_topic: &str, host: &str, port: u16, last_will_retain: bool) -> Self {
         let last_will_topic = format!("{base_topic}/connected");
+        let mqttoptions = MqttOptions::new(base_topic, host, port);
+        Self::new_options(last_will_topic, last_will_retain, mqttoptions)
+    }
 
-        let mut mqttoptions = MqttOptions::new(base_topic, host, port);
+    #[must_use]
+    pub fn new_options(
+        last_will_topic: String,
+        last_will_retain: bool,
+        mut mqttoptions: MqttOptions,
+    ) -> Self {
         mqttoptions.set_last_will(LastWill::new(
             &last_will_topic,
             "0",
