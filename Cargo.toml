@@ -18,7 +18,7 @@ pedantic = "warn"
 nursery = "warn"
 
 [dependencies]
-rumqttc = { version = "0.23", default-features = false }
+rumqttc = { version = "0.24", default-features = false }
 tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
