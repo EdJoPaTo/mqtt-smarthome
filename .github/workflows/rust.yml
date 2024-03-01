@@ -3,12 +3,10 @@ name: Test and Build Rust
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     # Check if it works with current dependencies
     - cron: '42 2 * * 6' # weekly on Saturday 2:42 UTC
-
-env:
-  RUSTFLAGS: --deny warnings
 
 jobs:
   rustfmt:
@@ -22,10 +20,32 @@ jobs:
       - uses: actions/checkout@v4
       - run: cargo fmt --check --verbose
 
-  test:
-    name: Test ${{ matrix.toolchain }} ${{ matrix.os }} ${{ matrix.features }}
+  clippy:
+    name: Clippy ${{ matrix.toolchain }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+          - nightly
+    env:
+      RUSTFLAGS: --deny warnings
+    steps:
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+      - uses: actions/checkout@v4
+      - run: cargo fetch
+      - run: cargo clippy --offline --all-features --all-targets
+      - run: cargo doc --offline --all-features --no-deps
+
+  features:
+    name: Features ${{ matrix.toolchain }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ (matrix.toolchain == 'beta') || (matrix.toolchain == 'nightly') }}
     strategy:
       fail-fast: false
       matrix:
@@ -34,49 +54,62 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-        clippyargs:
-          - -D clippy::pedantic
-        features:
-          - --no-default-features
-          - --all-features
-        include:
-          # Check future versions and maybe get some glances on soon to be lints
-          - toolchain: beta
-            os: ubuntu-latest
-            features: --all-features
-            clippyargs: -D clippy::pedantic -D clippy::nursery
-          - toolchain: nightly
-            os: ubuntu-latest
-            features: --all-features
-            clippyargs: -D clippy::pedantic
+    env:
+      RUSTFLAGS: --allow unknown-lints --deny warnings
     steps:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-          components: clippy
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
 
       - uses: actions/checkout@v4
+      - run: cargo fetch
 
-      - name: Fetch dependencies
-        run: cargo fetch --verbose
+      - name: Check all targets
+        run: cargo hack --keep-going --feature-powerset --exclude-features default check --all-targets --offline
 
-      - name: Check clippy
-        run: cargo clippy --verbose --all-targets ${{ matrix.features }} -- ${{ matrix.clippyargs }}
+      - name: Check without dev dependencies
+        run: cargo hack --keep-going --feature-powerset --exclude-features default --no-dev-deps check --offline
 
-      - name: Check docs
-        run: cargo doc --verbose --no-deps ${{ matrix.features }}
+  test:
+    name: Test ${{ matrix.toolchain }} ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+          - nightly
+        os:
+          - ubuntu-latest
+          - macos-latest
+    env:
+      RUSTFLAGS: --allow unknown-lints --deny warnings
+    steps:
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
 
-      - name: Build
-        run: cargo build --verbose --all-targets ${{ matrix.features }}
+      - uses: actions/checkout@v4
+      - run: cargo fetch
+      - run: cargo build --offline --all-targets
 
       - name: Run tests
-        run: cargo test --verbose ${{ matrix.features }}
+        run: cargo test --offline
 
   github-release:
     name: Release ${{ matrix.triple }}
     runs-on: ${{ matrix.os }}
-    needs: test
+    needs:
+      - features
+      - test
     strategy:
       fail-fast: false
       matrix:
@@ -96,6 +129,8 @@ jobs:
             os: macos-latest
           - triple: aarch64-apple-darwin
             os: macos-latest
+    env:
+      RUSTFLAGS: --allow unknown-lints --deny warnings
     steps:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
@@ -110,9 +145,7 @@ jobs:
           tool: cross
 
       - uses: actions/checkout@v4
-
-      - name: Fetch dependencies
-        run: cargo fetch --verbose
+      - run: cargo fetch
 
       - name: Build
-        run: ${{ runner.os == 'Linux' && 'cross' || 'cargo' }} build --release --verbose --all-features --target ${{ matrix.triple }}
+        run: ${{ runner.os == 'Linux' && 'cross' || 'cargo' }} build --release --offline --target ${{ matrix.triple }}
