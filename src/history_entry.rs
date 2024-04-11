@@ -74,12 +74,12 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case("", None)]
-    #[case("test", None)]
-    #[case("42", Some(42.0))]
-    #[case("666", Some(666.0))]
-    #[case("12.3 °C", Some(12.3))]
-    #[case(" 2.4 °C", Some(2.4))]
+    #[case::empty("", None)]
+    #[case::text("test", None)]
+    #[case::number("42", Some(42.0))]
+    #[case::number("666", Some(666.0))]
+    #[case::unit("12.3 °C", Some(12.3))]
+    #[case::indent(" 2.4 °C", Some(2.4))]
     fn payload_as_float(#[case] input: &str, #[case] expected: Option<f32>) {
         let actual = HistoryEntry::new(input.to_owned()).as_float();
         match (actual, expected) {
