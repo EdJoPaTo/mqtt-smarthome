@@ -1,6 +1,3 @@
-#![forbid(unsafe_code)]
-#![warn(clippy::pedantic, clippy::nursery)]
-
 mod history_entry;
 pub mod payload;
 mod watcher;
