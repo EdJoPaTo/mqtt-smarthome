@@ -1,20 +1,20 @@
-mod history_entry;
-pub mod payload;
-mod watcher;
-
 use core::time::Duration;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-pub use history_entry::HistoryEntry;
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time::sleep;
-use watcher::Watcher;
+
+pub use self::history_entry::HistoryEntry;
+use self::watcher::Watcher;
+
+mod history_entry;
+pub mod payload;
+mod watcher;
 
 #[derive(Clone)]
 pub struct MqttSmarthome {
