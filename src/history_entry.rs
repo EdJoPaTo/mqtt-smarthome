@@ -23,9 +23,7 @@ impl HistoryEntry {
 
     #[must_use]
     pub fn ago(&self) -> Duration {
-        SystemTime::now()
-            .duration_since(self.time)
-            .unwrap_or_default()
+        self.time.elapsed().unwrap_or_default()
     }
 
     #[must_use]
