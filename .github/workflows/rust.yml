@@ -11,8 +11,9 @@ on:
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
       - uses: actions/checkout@v4
