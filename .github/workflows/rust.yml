@@ -4,9 +4,6 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  schedule:
-    # Check if it works with current dependencies
-    - cron: '42 2 * * 6' # weekly on Saturday 2:42 UTC
 
 jobs:
   rustfmt:
@@ -49,6 +46,7 @@ jobs:
         toolchain:
           - stable
           - beta
+          - "1.70"
         os:
           - ubuntu-latest
           - macos-latest
@@ -79,6 +77,7 @@ jobs:
           - stable
           - beta
           - nightly
+          - "1.70"
         os:
           - ubuntu-latest
           - macos-latest
@@ -127,6 +126,6 @@ jobs:
           tool: cross
 
       - uses: actions/checkout@v4
-      - run: cargo fetch
+      - run: cargo fetch --locked
 
       - run: ${{ runner.os == 'Linux' && 'cross' || 'cargo' }} build --release --offline --target ${{ matrix.triple }}
