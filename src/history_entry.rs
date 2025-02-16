@@ -33,11 +33,7 @@ impl HistoryEntry {
 
     #[must_use]
     pub fn as_float(&self) -> Option<f32> {
-        self.payload
-            .split(char::is_whitespace)
-            .find(|str| !str.is_empty())?
-            .parse::<f32>()
-            .ok()
+        payload::as_f32(&self.payload)
     }
 
     #[must_use]
@@ -71,21 +67,9 @@ mod tests {
         assert!(!HistoryEntry::new("false".to_owned()).as_boolean());
     }
 
-    #[rstest::rstest]
-    #[case::empty("", None)]
-    #[case::text("test", None)]
-    #[case::number("42", Some(42.0))]
-    #[case::number("666", Some(666.0))]
-    #[case::unit("12.3 °C", Some(12.3))]
-    #[case::indent(" 2.4 °C", Some(2.4))]
-    fn payload_as_float(#[case] input: &str, #[case] expected: Option<f32>) {
-        let actual = HistoryEntry::new(input.to_owned()).as_float();
-        match (actual, expected) {
-            (None, None) => {} // All fine
-            (Some(actual), Some(expected)) => {
-                float_eq::assert_float_eq!(actual, expected, abs <= 0.1);
-            }
-            _ => panic!("Assertion failed:\n{actual:?} should be\n{expected:?}"),
-        }
+    #[test]
+    fn payload_as_float() {
+        let actual = HistoryEntry::new("12.3 °C".to_owned()).as_float().unwrap();
+        float_eq::assert_float_eq!(actual, 12.3, abs <= 0.01);
     }
 }
