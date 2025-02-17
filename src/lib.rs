@@ -74,7 +74,7 @@ impl MqttSmarthome {
         self.client.disconnect().await
     }
 
-    /// Combines [`subscribe`](crate::MqttSmarthome::subscribe) and [`watch`](crate::MqttSmarthome::watch).
+    /// Combines [`subscribe`](Self::subscribe) and [`watch`](Self::watch).
     pub async fn subscribe_and_watch(
         &self,
         topic: &str,
@@ -115,7 +115,7 @@ impl MqttSmarthome {
         self.history.read().await.get(topic).cloned()
     }
 
-    /// Shortcut for `.last(topic).await.is_some_and(|o| o.as_boolean())`
+    /// Shortcut for `.last(topic).await.is_some_and(|entry| entry.as_boolean())`
     pub async fn last_is_true(&self, topic: &str) -> bool {
         self.history
             .read()
@@ -124,7 +124,7 @@ impl MqttSmarthome {
             .is_some_and(HistoryEntry::as_boolean)
     }
 
-    /// Shortcut for `.last(topic).await.and_then(|o| o.as_float())`
+    /// Shortcut for `.last(topic).await.and_then(|entry| entry.as_float())`
     pub async fn last_float(&self, topic: &str) -> Option<f32> {
         self.history
             .read()
