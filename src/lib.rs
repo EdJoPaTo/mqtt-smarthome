@@ -108,22 +108,31 @@ impl MqttSmarthome {
         self.history.read().await.get(topic).cloned()
     }
 
-    /// Shortcut for `.last(topic).await.is_some_and(|entry| entry.as_boolean())`
+    /// Shortcut for `.last(topic).await.map(|entry| entry.as_boolean())` without clone.
+    pub async fn last_as_bool(&self, topic: &str) -> Option<bool> {
+        self.history
+            .read()
+            .await
+            .get(topic)
+            .map(HistoryEntry::as_boolean)
+    }
+
+    /// Shortcut for `.last(topic).await.and_then(|entry| entry.as_float())` without clone.
+    pub async fn last_as_float(&self, topic: &str) -> Option<f32> {
+        self.history
+            .read()
+            .await
+            .get(topic)
+            .and_then(HistoryEntry::as_float)
+    }
+
+    /// Shortcut for `.last(topic).await.is_some_and(|entry| entry.as_boolean())` without clone.
     pub async fn last_is_true(&self, topic: &str) -> bool {
         self.history
             .read()
             .await
             .get(topic)
             .is_some_and(HistoryEntry::as_boolean)
-    }
-
-    /// Shortcut for `.last(topic).await.and_then(|entry| entry.as_float())`
-    pub async fn last_float(&self, topic: &str) -> Option<f32> {
-        self.history
-            .read()
-            .await
-            .get(topic)
-            .and_then(HistoryEntry::as_float)
     }
 
     /// Publish a `payload` to a MQTT `topic`.
