@@ -1,5 +1,5 @@
 use core::time::Duration;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
@@ -14,6 +14,7 @@ use self::watcher::Watcher;
 
 mod history_entry;
 pub mod payload;
+mod subscriptions;
 mod watcher;
 
 #[derive(Clone)]
@@ -22,7 +23,7 @@ pub struct MqttSmarthome {
     history: Arc<RwLock<HashMap<String, HistoryEntry>>>,
     last_will_retain: bool,
     last_will_topic: String,
-    subscribed: Arc<RwLock<HashSet<String>>>,
+    subscribed: Arc<RwLock<subscriptions::Subscriptions>>,
     #[allow(clippy::type_complexity)]
     watchers: Arc<RwLock<Vec<Watcher<Sender<(String, String)>>>>>,
 }
@@ -55,7 +56,7 @@ impl MqttSmarthome {
             history: Arc::new(RwLock::new(HashMap::new())),
             last_will_retain,
             last_will_topic,
-            subscribed: Arc::new(RwLock::new(HashSet::new())),
+            subscribed: Arc::new(RwLock::new(subscriptions::Subscriptions::new())),
             watchers: Arc::new(RwLock::new(Vec::new())),
         };
 
@@ -79,7 +80,7 @@ impl MqttSmarthome {
     /// # Panics
     /// Panics when the MQTT eventloop is gone.
     pub async fn subscribe(&self, filter: &str) {
-        let is_new = self.subscribed.write().await.insert(filter.to_owned());
+        let is_new = self.subscribed.write().await.add(filter);
         if is_new {
             self.client
                 .subscribe(filter, QoS::AtLeastOnce)
@@ -163,7 +164,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
 
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
-                    let topics = smarthome.subscribed.read().await.clone();
+                    let topics = smarthome.subscribed.read().await.0.clone();
                     #[allow(clippy::iter_over_hash_type)]
                     for topic in topics {
                         smarthome
