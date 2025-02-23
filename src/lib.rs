@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
 use tokio::sync::mpsc::error::TrySendError;
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time::sleep;
@@ -23,7 +23,8 @@ pub struct MqttSmarthome {
     last_will_retain: bool,
     last_will_topic: String,
     subscribed: Arc<RwLock<HashSet<String>>>,
-    watchers: Arc<RwLock<Vec<Watcher>>>,
+    #[allow(clippy::type_complexity)]
+    watchers: Arc<RwLock<Vec<Watcher<Sender<(String, String)>>>>>,
 }
 
 impl MqttSmarthome {
@@ -74,39 +75,31 @@ impl MqttSmarthome {
         self.client.disconnect().await
     }
 
-    /// Combines [`subscribe`](Self::subscribe) and [`watch`](Self::watch).
-    pub async fn subscribe_and_watch(
-        &self,
-        topic: &str,
-        allow_retained: bool,
-    ) -> Receiver<watcher::ChannelPayload> {
-        self.subscribe(topic).await;
-        self.watch(topic, allow_retained).await
-    }
-
-    /// Subscribe to a MQTT `topic`.
+    /// Subscribe to MQTT packages where topics match the given `filter`.
     /// # Panics
     /// Panics when the MQTT eventloop is gone.
-    pub async fn subscribe(&self, topic: &str) {
-        let is_new = self.subscribed.write().await.insert(topic.to_owned());
+    pub async fn subscribe(&self, filter: &str) {
+        let is_new = self.subscribed.write().await.insert(filter.to_owned());
         if is_new {
             self.client
-                .subscribe(topic, QoS::AtLeastOnce)
+                .subscribe(filter, QoS::AtLeastOnce)
                 .await
                 .expect("failed to subscribe to MQTT");
         }
     }
 
-    /// Watch for new messages on the `topic`.
+    /// Create a channel that receives messages for topics that match the given `filter`.
     ///
-    /// Requires the topic to be subscribed to notice them.
-    pub async fn watch(
+    /// Also, [subscribe](Self::subscribe)s to the given `filter` on the broker.
+    pub async fn subscribe_channel(
         &self,
-        topic: &str,
+        filter: &str,
         allow_retained: bool,
-    ) -> Receiver<watcher::ChannelPayload> {
-        let (watcher, receiver) = Watcher::new(topic, allow_retained);
+    ) -> Receiver<(String, String)> {
+        let (sender, receiver) = channel(25);
+        let watcher = Watcher::new(filter, allow_retained, sender);
         self.watchers.write().await.push(watcher);
+        self.subscribe(filter).await;
         receiver
     }
 
@@ -191,27 +184,23 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         .write()
                         .await
                         .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
-
-                    let senders = smarthome
+                    smarthome
                         .watchers
                         .read()
                         .await
                         .iter()
-                        .filter_map(|watcher| {
-                            watcher.matching_sender(&publish.topic, publish.retain)
-                        })
-                        .collect::<Vec<_>>();
-                    for sender in senders {
-                        match sender.try_send((publish.topic.clone(), payload.clone())) {
-                            Ok(()) => {}
-                            Err(TrySendError::Closed((topic, _))) => {
-                                panic!("MQTT watcher receiver closed. Topic: {topic}");
+                        .filter_map(|watcher| watcher.matching(&publish.topic, publish.retain))
+                        .for_each(|sender| {
+                            match sender.try_send((publish.topic.clone(), payload.clone())) {
+                                Ok(()) => {}
+                                Err(TrySendError::Closed((topic, _))) => {
+                                    panic!("MQTT watch receiver closed. Topic: {topic}");
+                                }
+                                Err(TrySendError::Full((topic, _))) => {
+                                    eprintln!("MQTT watch receiver buffer is full. Topic: {topic}");
+                                }
                             }
-                            Err(TrySendError::Full((topic, _))) => {
-                                eprintln!("MQTT watcher receiver buffer is full. Topic: {topic}");
-                            }
-                        }
-                    }
+                        });
                 }
             }
             Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
@@ -223,6 +212,6 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                 println!("MQTT Connection Error: {err}");
                 sleep(Duration::from_secs(1)).await;
             }
-        };
+        }
     }
 }

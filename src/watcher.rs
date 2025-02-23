@@ -1,64 +1,53 @@
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-
-pub type ChannelPayload = (String, String);
-
-pub struct Watcher {
+#[must_use]
+pub struct Watcher<Action> {
     allow_retained: bool,
     filter: Box<str>,
-    sender: Sender<ChannelPayload>,
+    action: Action,
 }
 
-impl Watcher {
-    pub fn new(mqtt_topic_filter: &str, allow_retained: bool) -> (Self, Receiver<ChannelPayload>) {
-        assert!(
-            rumqttc::mqttbytes::valid_filter(mqtt_topic_filter),
-            "topic filter is not valid"
-        );
-        let (sender, receiver) = channel(25);
-        let watcher = Self {
+impl<Action> Watcher<Action> {
+    #[track_caller]
+    pub fn new(filter: &str, allow_retained: bool, action: Action) -> Self {
+        assert!(rumqttc::valid_filter(filter), "topic filter is not valid");
+        Self {
             allow_retained,
-            filter: mqtt_topic_filter.into(),
-            sender,
-        };
-        (watcher, receiver)
+            filter: filter.into(),
+            action,
+        }
     }
 
     #[must_use]
-    fn is_match(&self, topic: &str, retained: bool) -> bool {
+    pub fn matching(&self, topic: &str, retained: bool) -> Option<&Action> {
         if retained && !self.allow_retained {
-            return false;
+            return None;
         }
-        rumqttc::mqttbytes::matches(topic, &self.filter)
-    }
-
-    pub fn matching_sender(&self, topic: &str, retained: bool) -> Option<Sender<ChannelPayload>> {
-        self.is_match(topic, retained).then(|| self.sender.clone())
+        rumqttc::matches(topic, &self.filter).then_some(&self.action)
     }
 }
 
 #[test]
-fn is_match_retained_allowed() {
-    let (watcher, _receiver) = Watcher::new("#", true);
-    assert!(watcher.is_match("foo/bar", true));
-    assert!(watcher.is_match("foo/bar", false));
+fn retained_allowed() {
+    let watcher = Watcher::new("foo/#", true, ());
+    assert!(watcher.matching("foo/bar", true).is_some());
+    assert!(watcher.matching("foo/bar", false).is_some());
 }
 
 #[test]
-fn is_match_retained_not_allowed() {
-    let (watcher, _receiver) = Watcher::new("#", false);
-    assert!(!watcher.is_match("foo/bar", true));
-    assert!(watcher.is_match("foo/bar", false));
+fn retained_not_allowed() {
+    let watcher = Watcher::new("foo/#", false, ());
+    assert!(watcher.matching("foo/bar", true).is_none());
+    assert!(watcher.matching("foo/bar", false).is_some());
 }
 
 #[test]
-fn is_match_matches() {
-    let (watcher, _receiver) = Watcher::new("foo/#", false);
-    assert!(watcher.is_match("foo/bar", false));
-    assert!(!watcher.is_match("whatever/else", false));
+fn subtopicfilter() {
+    let watcher = Watcher::new("foo/#", false, ());
+    assert!(watcher.matching("foo/bar", false).is_some());
+    assert!(watcher.matching("whatever/else", false).is_none());
 }
 
 #[test]
 #[should_panic = "topic filter is not valid"]
 fn bad_filter_panics() {
-    Watcher::new("#/whatever", false);
+    _ = Watcher::new("#/whatever", false, ());
 }
