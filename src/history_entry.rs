@@ -4,21 +4,16 @@ use std::time::SystemTime;
 use crate::payload;
 
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct HistoryEntry {
     time: SystemTime,
     payload: Box<str>,
 }
 
 impl HistoryEntry {
-    #[must_use]
-    pub fn new<I>(payload: I) -> Self
-    where
-        I: Into<Box<str>>,
-    {
-        Self {
-            time: SystemTime::now(),
-            payload: payload.into(),
-        }
+    pub(crate) fn new<P: Into<Box<str>>>(time: SystemTime, payload: P) -> Self {
+        let payload = payload.into();
+        Self { time, payload }
     }
 
     #[must_use]
@@ -46,14 +41,22 @@ impl HistoryEntry {
 mod tests {
     use super::*;
 
+    #[track_caller]
+    fn entry<P: Into<Box<str>>>(payload: P) -> HistoryEntry {
+        HistoryEntry {
+            time: SystemTime::now(),
+            payload: payload.into(),
+        }
+    }
+
     #[rstest::rstest]
     fn payload_stays_payload(#[values("42", "666")] payload: &str) {
-        assert_eq!(HistoryEntry::new(payload.to_owned()).payload(), payload);
+        assert_eq!(entry(payload).payload(), payload);
     }
 
     #[test]
     fn ago_works() {
-        let entry = HistoryEntry::new("42".to_owned());
+        let entry = entry("42");
         std::thread::sleep(Duration::from_millis(25));
         let ago = entry.ago().as_millis();
         println!("ago: {ago} ms");
@@ -63,13 +66,13 @@ mod tests {
 
     #[test]
     fn payload_as_boolean() {
-        assert!(HistoryEntry::new("true".to_owned()).as_boolean());
-        assert!(!HistoryEntry::new("false".to_owned()).as_boolean());
+        assert!(entry("true").as_boolean());
+        assert!(!entry("false").as_boolean());
     }
 
     #[test]
     fn payload_as_float() {
-        let actual = HistoryEntry::new("12.3 °C".to_owned()).as_float().unwrap();
+        let actual = entry("12.3 °C").as_float().unwrap();
         float_eq::assert_float_eq!(actual, 12.3, abs <= 0.01);
     }
 }

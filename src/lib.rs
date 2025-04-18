@@ -1,6 +1,7 @@
 use core::time::Duration;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
 use tokio::sync::mpsc::error::TrySendError;
@@ -148,11 +149,11 @@ impl MqttSmarthome {
             .publish(topic, QoS::AtLeastOnce, retain, payload.clone())
             .await
             .expect("failed to publish to MQTT");
-
+        let time = SystemTime::now();
         self.history
             .write()
             .await
-            .insert(topic.to_owned(), HistoryEntry::new(payload));
+            .insert(topic.to_owned(), HistoryEntry::new(time, payload));
     }
 }
 
@@ -188,12 +189,12 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                 });
             }
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) if !publish.dup => {
+                let time = SystemTime::now();
                 if let Ok(payload) = String::from_utf8(publish.payload.into()) {
-                    smarthome
-                        .history
-                        .write()
-                        .await
-                        .insert(publish.topic.clone(), HistoryEntry::new(payload.clone()));
+                    smarthome.history.write().await.insert(
+                        publish.topic.clone(),
+                        HistoryEntry::new(time, payload.clone()),
+                    );
                     smarthome
                         .watchers
                         .read()
