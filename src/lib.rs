@@ -22,6 +22,7 @@ mod watcher;
 pub struct MqttSmarthome {
     client: AsyncClient,
     history: Arc<RwLock<HashMap<String, HistoryEntry>>>,
+    last_received: Arc<RwLock<SystemTime>>,
     last_will_retain: bool,
     last_will_topic: String,
     subscribed: Arc<RwLock<subscriptions::Subscriptions>>,
@@ -57,6 +58,7 @@ impl MqttSmarthome {
             history: Arc::new(RwLock::new(HashMap::new())),
             last_will_retain,
             last_will_topic,
+            last_received: Arc::new(RwLock::new(SystemTime::UNIX_EPOCH)),
             subscribed: Arc::new(RwLock::new(subscriptions::Subscriptions::new())),
             watchers: Arc::new(RwLock::new(Vec::new())),
         };
@@ -103,6 +105,15 @@ impl MqttSmarthome {
         self.watchers.write().await.push(watcher);
         self.subscribe(filter).await;
         receiver
+    }
+
+    #[must_use]
+    pub async fn since_last_received(&self) -> Duration {
+        self.last_received
+            .read()
+            .await
+            .elapsed()
+            .unwrap_or_default()
     }
 
     /// Return the last `HistoryEntry` of the given `topic`.
@@ -191,6 +202,10 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) if !publish.dup => {
                 let time = SystemTime::now();
                 if let Ok(payload) = String::from_utf8(publish.payload.into()) {
+                    {
+                        let mut last_received = smarthome.last_received.write().await;
+                        *last_received = time;
+                    }
                     smarthome.history.write().await.insert(
                         publish.topic.clone(),
                         HistoryEntry::new(time, payload.clone()),
