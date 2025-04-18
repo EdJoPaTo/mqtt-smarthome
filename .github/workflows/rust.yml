@@ -8,7 +8,6 @@ on:
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: dtolnay/rust-toolchain@nightly
         with:
@@ -45,11 +44,11 @@ jobs:
       matrix:
         toolchain:
           - stable
-          - beta
           - "1.70"
         os:
           - ubuntu-latest
           - macos-latest
+          - windows-latest
     env:
       RUSTFLAGS: --allow unknown-lints --deny warnings
     steps:
@@ -81,6 +80,7 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
+          - windows-latest
     steps:
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -112,6 +112,11 @@ jobs:
             os: macos-latest
           - triple: aarch64-apple-darwin
             os: macos-latest
+
+          - triple: x86_64-pc-windows-msvc
+            os: windows-latest
+          - triple: aarch64-pc-windows-msvc
+            os: windows-latest
     env:
       RUSTFLAGS: --deny warnings
     steps:
