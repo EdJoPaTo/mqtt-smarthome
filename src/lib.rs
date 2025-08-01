@@ -201,10 +201,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) if !publish.dup => {
                 let time = SystemTime::now();
                 if let Ok(payload) = String::from_utf8(publish.payload.into()) {
-                    {
-                        let mut last_received = smarthome.last_received.write().await;
-                        *last_received = Some(time);
-                    }
+                    *smarthome.last_received.write().await = Some(time);
                     smarthome.history.write().await.insert(
                         publish.topic.clone(),
                         HistoryEntry::new(time, payload.clone()),
