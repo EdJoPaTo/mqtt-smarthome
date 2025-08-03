@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use rumqttc::{AsyncClient, EventLoop, LastWill, MqttOptions, QoS};
-use tokio::sync::mpsc::error::TrySendError;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::RwLock;
+use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task;
 use tokio::time::sleep;
 
@@ -26,7 +26,7 @@ pub struct MqttSmarthome {
     last_will_retain: bool,
     last_will_topic: String,
     subscribed: Arc<RwLock<subscriptions::Subscriptions>>,
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     watchers: Arc<RwLock<Vec<Watcher<Sender<(String, String)>>>>>,
 }
 
@@ -74,7 +74,7 @@ impl MqttSmarthome {
     }
 
     /// Disconnect from the MQTT broker.
-    #[allow(clippy::missing_errors_doc)]
+    #[expect(clippy::missing_errors_doc)]
     pub async fn disconnect(&self) -> Result<(), rumqttc::ClientError> {
         self.client.disconnect().await
     }
@@ -176,7 +176,7 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                 let smarthome = smarthome.clone();
                 task::spawn(async move {
                     let topics = smarthome.subscribed.read().await.0.clone();
-                    #[allow(clippy::iter_over_hash_type)]
+                    #[expect(clippy::iter_over_hash_type)]
                     for topic in topics {
                         smarthome
                             .client

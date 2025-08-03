@@ -4,17 +4,21 @@ version = "0.4.1"
 license = "MIT"
 repository = "https://github.com/EdJoPaTo/mqtt-smarthome"
 authors = ["EdJoPaTo <mqtt-smarthome-rust@edjopato.de>"]
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.85"
 
 [features]
 tls = ["rumqttc/use-rustls"]
 
 [lints.rust]
 unsafe_code = "forbid"
+unused_qualifications = "warn"
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
+allow_attributes = "warn"
+min_ident_chars = "warn"
+unused_trait_names = "warn"
 
 [dependencies]
 rumqttc = { version = "0.24", default-features = false }
