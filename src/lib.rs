@@ -150,20 +150,22 @@ impl MqttSmarthome {
     /// Publish a `payload` to a MQTT `topic`.
     /// # Panics
     /// Panics when the MQTT eventloop is gone.
-    pub async fn publish<P>(&self, topic: &str, payload: P, retain: bool)
+    pub async fn publish<T, P>(&self, topic: T, payload: P, retain: bool)
     where
+        T: Into<String>,
         P: ToString + Send,
     {
+        let topic = topic.into();
         let payload = payload.to_string();
         self.client
-            .publish(topic, QoS::AtLeastOnce, retain, payload.clone())
+            .publish(topic.clone(), QoS::AtLeastOnce, retain, payload.clone())
             .await
             .expect("failed to publish to MQTT");
         let time = SystemTime::now();
         self.history
             .write()
             .await
-            .insert(topic.to_owned(), HistoryEntry::new(time, payload));
+            .insert(topic, HistoryEntry::new(time, payload));
     }
 }
 
