@@ -21,7 +21,7 @@ min_ident_chars = "warn"
 unused_trait_names = "warn"
 
 [dependencies]
-rumqttc = { version = "0.24", default-features = false }
+rumqttc = { version = "0.25", default-features = false }
 tokio = { version = "1", features = ["sync"] }
 
 [dev-dependencies]
