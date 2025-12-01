@@ -11,9 +11,9 @@ updates:
       time: "02:42" # UTC
     commit-message:
       prefix: "build(cargo):"
-    groups:
-      patches:
-        update-types: ["patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
