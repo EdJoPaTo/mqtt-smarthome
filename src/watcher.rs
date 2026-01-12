@@ -17,6 +17,11 @@ impl<Action> Watcher<Action> {
     }
 
     #[must_use]
+    pub fn filter(&self) -> &str {
+        &self.filter
+    }
+
+    #[must_use]
     pub fn matching(&self, topic: &str, retained: bool) -> Option<&Action> {
         if retained && !self.allow_retained {
             return None;

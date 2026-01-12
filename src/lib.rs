@@ -208,23 +208,21 @@ async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
                         publish.topic.clone(),
                         HistoryEntry::new(time, payload.clone()),
                     );
-                    smarthome
-                        .watchers
-                        .read()
-                        .await
-                        .iter()
-                        .filter_map(|watcher| watcher.matching(&publish.topic, publish.retain))
-                        .for_each(|sender| {
+                    for watcher in smarthome.watchers.read().await.iter() {
+                        if let Some(sender) = watcher.matching(&publish.topic, publish.retain) {
                             match sender.try_send((publish.topic.clone(), payload.clone())) {
                                 Ok(()) => {}
-                                Err(TrySendError::Closed((topic, _))) => {
-                                    panic!("MQTT watch receiver closed. Topic: {topic}");
-                                }
-                                Err(TrySendError::Full((topic, _))) => {
-                                    eprintln!("MQTT watch receiver buffer is full. Topic: {topic}");
-                                }
+                                Err(TrySendError::Closed((topic, _))) => panic!(
+                                    "MQTT watch receiver closed. Filter: {} Topic: {topic}",
+                                    watcher.filter()
+                                ),
+                                Err(TrySendError::Full((topic, _))) => eprintln!(
+                                    "MQTT watch receiver buffer is full. Filter: {} Topic: {topic}",
+                                    watcher.filter()
+                                ),
                             }
-                        });
+                        }
+                    }
                 }
             }
             Ok(rumqttc::Event::Outgoing(rumqttc::Outgoing::Disconnect)) => {
