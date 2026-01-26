@@ -95,12 +95,17 @@ impl MqttSmarthome {
     /// Create a channel that receives messages for topics that match the given `filter`.
     ///
     /// Also, [subscribe](Self::subscribe)s to the given `filter` on the broker.
+    ///
+    /// `buffer` should be big enough for the incoming messages on a bulk.
+    /// When retained are allowed there should be enough space to get all retained messages into the buffer on startup.
+    /// Must be at least 1.
     pub async fn subscribe_channel(
         &self,
         filter: &str,
         allow_retained: bool,
+        buffer: usize,
     ) -> Receiver<(String, String)> {
-        let (sender, receiver) = channel(25);
+        let (sender, receiver) = channel(buffer);
         let watcher = Watcher::new(filter, allow_retained, sender);
         self.watchers.write().await.push(watcher);
         self.subscribe(filter).await;
