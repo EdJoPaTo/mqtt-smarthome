@@ -99,6 +99,7 @@ impl MqttSmarthome {
     /// `buffer` should be big enough for the incoming messages on a bulk.
     /// When retained are allowed there should be enough space to get all retained messages into the buffer on startup.
     /// Must be at least 1.
+    #[must_use]
     pub async fn subscribe_channel(
         &self,
         filter: &str,
@@ -121,11 +122,13 @@ impl MqttSmarthome {
     }
 
     /// Return the last `HistoryEntry` of the given `topic`.
+    #[must_use]
     pub async fn last(&self, topic: &str) -> Option<HistoryEntry> {
         self.history.read().await.get(topic).cloned()
     }
 
     /// Shortcut for `.last(topic).await.map(|entry| entry.as_boolean())` without clone.
+    #[must_use]
     pub async fn last_as_bool(&self, topic: &str) -> Option<bool> {
         self.history
             .read()
@@ -135,6 +138,7 @@ impl MqttSmarthome {
     }
 
     /// Shortcut for `.last(topic).await.and_then(|entry| entry.as_float())` without clone.
+    #[must_use]
     pub async fn last_as_float(&self, topic: &str) -> Option<f32> {
         self.history
             .read()
@@ -144,6 +148,7 @@ impl MqttSmarthome {
     }
 
     /// Shortcut for `.last(topic).await.is_some_and(|entry| entry.as_boolean())` without clone.
+    #[must_use]
     pub async fn last_is_true(&self, topic: &str) -> bool {
         self.history
             .read()

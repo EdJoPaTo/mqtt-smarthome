@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+#[must_use]
 pub struct Subscriptions(pub HashSet<String>);
 
 impl Subscriptions {
@@ -22,6 +23,7 @@ impl Subscriptions {
     }
 
     #[cfg(test)]
+    #[must_use]
     fn as_sorted(&self) -> Vec<&str> {
         let mut vec = self.0.iter().map(|filter| &**filter).collect::<Vec<_>>();
         vec.sort_unstable();
