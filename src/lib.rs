@@ -25,25 +25,36 @@ pub struct MqttSmarthome {
     last_received: Arc<RwLock<Option<SystemTime>>>,
     last_will_retain: bool,
     last_will_topic: String,
-    subscribed: Arc<RwLock<subscriptions::Subscriptions>>,
+    subscriptions: Arc<RwLock<subscriptions::Subscriptions>>,
     #[expect(clippy::type_complexity)]
     watchers: Arc<RwLock<Vec<Watcher<Sender<(String, String)>>>>>,
 }
 
 impl MqttSmarthome {
+    /// Connect to the MQTT Broker.
+    /// # Panics
+    /// When the initial connection fails.
     #[must_use]
-    pub fn new(base_topic: &str, host: &str, port: u16, last_will_retain: bool) -> Self {
+    pub async fn new(
+        base_topic: &str,
+        host: &str,
+        port: u16,
+        last_will_retain: bool,
+    ) -> (Self, EventLoop) {
         let last_will_topic = format!("{base_topic}/connected");
         let mqttoptions = MqttOptions::new(base_topic, host, port);
-        Self::new_options(last_will_topic, last_will_retain, mqttoptions)
+        Self::new_options(last_will_topic, last_will_retain, mqttoptions).await
     }
 
+    /// Connect to the MQTT Broker.
+    /// # Panics
+    /// When the initial connection fails.
     #[must_use]
-    pub fn new_options(
+    pub async fn new_options(
         last_will_topic: String,
         last_will_retain: bool,
         mut mqttoptions: MqttOptions,
-    ) -> Self {
+    ) -> (Self, EventLoop) {
         mqttoptions.set_last_will(LastWill::new(
             &last_will_topic,
             "0",
@@ -51,7 +62,7 @@ impl MqttSmarthome {
             last_will_retain,
         ));
 
-        let (client, eventloop) = AsyncClient::new(mqttoptions, 100);
+        let (client, mut eventloop) = AsyncClient::new(mqttoptions, 100);
 
         let smarthome = Self {
             client,
@@ -59,18 +70,22 @@ impl MqttSmarthome {
             last_will_retain,
             last_will_topic,
             last_received: Arc::new(RwLock::new(None)),
-            subscribed: Arc::new(RwLock::new(subscriptions::Subscriptions::new())),
+            subscriptions: Arc::new(RwLock::new(subscriptions::Subscriptions::new())),
             watchers: Arc::new(RwLock::new(Vec::new())),
         };
 
-        task::spawn({
-            let smarthome = smarthome.clone();
-            async move {
-                handle_eventloop(&smarthome, eventloop).await;
+        loop {
+            match eventloop.poll().await {
+                Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(packet))) => {
+                    eprintln!("Initial MQTT connection successful {packet:?}");
+                    break;
+                }
+                Ok(event) => eprintln!("Unexpected event on expected initial ConnAck: {event:?}"),
+                Err(err) => panic!("Initial MQTT connection error: {err}"),
             }
-        });
+        }
 
-        smarthome
+        (smarthome, eventloop)
     }
 
     /// Disconnect from the MQTT broker.
@@ -79,12 +94,21 @@ impl MqttSmarthome {
         self.client.disconnect().await
     }
 
-    /// Subscribe to MQTT packages where topics match the given `filter`.
+    /// Add the `filter` to the subscriptions which will be subscribed on the Broker on [`start_eventloop`](Self::start_eventloop).
+    ///
+    /// Should be called on startup before [`start_eventloop`](Self::start_eventloop).
+    /// After that it will print a warning about doing that on startup instead and manually subscribes to the topic (so it will still work but less optimal).
     /// # Panics
     /// Panics when the MQTT eventloop is gone.
     pub async fn subscribe(&self, filter: &str) {
-        let is_new = self.subscribed.write().await.add(filter);
-        if is_new {
+        let already_received_something = self.since_last_received().await.is_some();
+        if already_received_something {
+            eprintln!(
+                "MQTT subscribe called after start_subscriptions. Consider defining the subscription on startup."
+            );
+        }
+        let is_new = self.subscriptions.write().await.add(filter);
+        if is_new && already_received_something {
             self.client
                 .subscribe(filter, QoS::AtLeastOnce)
                 .await
@@ -177,41 +201,53 @@ impl MqttSmarthome {
             .await
             .insert(topic, HistoryEntry::new(time, payload));
     }
+
+    /// Handle the MQTT eventloop.
+    ///
+    /// This method will block and only end when a disconnect is happening.
+    /// Either run as the main loop or in its own task.
+    /// Should be started after startup and [`subscribe`s](Self::subscribe) are all done.
+    pub async fn start_eventloop(&self, eventloop: EventLoop) {
+        handle_eventloop(self, eventloop).await;
+    }
+}
+
+fn on_connect(smarthome: MqttSmarthome) {
+    task::spawn(async move {
+        let topics = smarthome.subscriptions.read().await.0.clone();
+        if !topics.is_empty() {
+            eprintln!("MQTT subscribe to {} topics…", topics.len());
+        }
+        #[expect(clippy::iter_over_hash_type)]
+        for topic in topics {
+            smarthome
+                .client
+                .subscribe(topic, QoS::AtLeastOnce)
+                .await
+                .expect("MQTT should subscribe topics");
+        }
+
+        smarthome
+            .client
+            .publish(
+                &smarthome.last_will_topic,
+                QoS::AtLeastOnce,
+                smarthome.last_will_retain,
+                "2",
+            )
+            .await
+            .expect("MQTT should publish connection status");
+        eprintln!("MQTT connection fully initialized");
+    });
 }
 
 async fn handle_eventloop(smarthome: &MqttSmarthome, mut eventloop: EventLoop) {
+    on_connect(smarthome.clone());
     loop {
         match eventloop.poll().await {
             Ok(rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(packet))) => {
                 eprintln!("MQTT connected {packet:?}");
-
-                let smarthome = smarthome.clone();
-                task::spawn(async move {
-                    let topics = smarthome.subscribed.read().await.0.clone();
-                    if !topics.is_empty() {
-                        eprintln!("MQTT subscribe to {} topics after reconnect…", topics.len());
-                    }
-                    #[expect(clippy::iter_over_hash_type)]
-                    for topic in topics {
-                        smarthome
-                            .client
-                            .subscribe(topic, QoS::AtLeastOnce)
-                            .await
-                            .expect("MQTT should re-subscribe topics after reconnect");
-                    }
-
-                    smarthome
-                        .client
-                        .publish(
-                            &smarthome.last_will_topic,
-                            QoS::AtLeastOnce,
-                            smarthome.last_will_retain,
-                            "2",
-                        )
-                        .await
-                        .expect("MQTT should publish connection status");
-                    eprintln!("MQTT connection fully initialized");
-                });
+                on_connect(smarthome.clone());
             }
             Ok(rumqttc::Event::Incoming(rumqttc::Incoming::Publish(publish))) if !publish.dup => {
                 let time = SystemTime::now();
