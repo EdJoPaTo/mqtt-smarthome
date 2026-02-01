@@ -41,7 +41,7 @@ impl MqttSmarthome {
         port: u16,
         last_will_retain: bool,
     ) -> (Self, EventLoop) {
-        let last_will_topic = format!("{base_topic}/connected");
+        let last_will_topic = format!("{base_topic}/online");
         let mqttoptions = MqttOptions::new(base_topic, host, port);
         Self::new_options(last_will_topic, last_will_retain, mqttoptions).await
     }
@@ -57,7 +57,7 @@ impl MqttSmarthome {
     ) -> (Self, EventLoop) {
         mqttoptions.set_last_will(LastWill::new(
             &last_will_topic,
-            "0",
+            "false",
             QoS::AtLeastOnce,
             last_will_retain,
         ));
@@ -233,7 +233,7 @@ fn on_connect(smarthome: MqttSmarthome) {
                 &smarthome.last_will_topic,
                 QoS::AtLeastOnce,
                 smarthome.last_will_retain,
-                "2",
+                "true",
             )
             .await
             .expect("MQTT should publish connection status");
