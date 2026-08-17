@@ -6,6 +6,8 @@ pub fn is_true(payload: &str) -> bool {
         | "2" => true,
         "false" | "False" | "FALSE" | "off" | "Off" | "OFF" | "offline" | "Offline" | "OFFLINE"
         | "0" => false,
+        _ if payload.contains(r#""state":"ON""#) => true,
+        _ if payload.contains(r#""state":"OFF""#) => false,
         _ => {
             eprintln!("MQTT WARNING is_true unclear, assumes true: {payload:?}");
             true
@@ -30,12 +32,32 @@ pub fn as_f32(payload: &str) -> Option<f32> {
 #[cfg(test)]
 mod tests {
     #[rstest::rstest]
-    fn is_true(#[values("on", "1", "true")] payload: &str) {
+    fn is_true(
+        #[values(
+            "on",
+            "1",
+            "true",
+            r#"{"state":"ON"}"#,
+            r#"{"color":{},"color_mode":"onoff","state":"ON"}"#,
+            r#"{"brightness":3,"color":{"b":0,"g":77,"r":255},"color_mode":"rgb","state":"ON"}"#
+        )]
+        payload: &str,
+    ) {
         assert!(super::is_true(payload));
     }
 
     #[rstest::rstest]
-    fn is_false(#[values("off", "0", "false")] payload: &str) {
+    fn is_false(
+        #[values(
+            "off",
+            "0",
+            "false",
+            r#"{"state":"OFF"}"#,
+            r#"{"color":{},"color_mode":"onoff","state":"OFF"}"#,
+            r#"{"brightness":3,"color":{"b":0,"g":77,"r":255},"color_mode":"rgb","state":"OFF"}"#
+        )]
+        payload: &str,
+    ) {
         assert!(!super::is_true(payload));
     }
 
